@@ -1,0 +1,73 @@
+---
+title: "DA5020.A2.Bhavitha.Kandru."
+author: "Bhavitha Kandru"
+date: "2023-09-14"
+output:
+  html_document: default
+---
+
+#Question 1(2)
+#Load the msleep dataset and inspect the dimensions and properties of the data e.g. what type of observations are recorded in the dataset, are any missing, etc. Summarize your findings/understanding about the dataset based on what you have observed.
+```{r}
+library(ggplot2)
+library(dplyr)
+data(msleep)
+dim(msleep)
+str(msleep)
+summary(msleep)
+sum(is.na(msleep))
+```
+#Summary:
+# "dim(msleep)" provides the size of the dataset by fiving the count of rows and columns. Here there are 83 rows and 11 coulumns.
+# "str(msleep)" is used to check the data strucrue. Here the data structure of name,genus,vore,order,conservation is chr and rest all are num.
+# "summary(msleep)" provides the summary of data including measures of central tendency and distribution of numeric values.
+# "sum(is.na(msleep))" is used to count the number of missing data in the data set. In this dataset there are a total of 136 missing values.
+
+
+#Question2:
+#Calculate the proportion of each category of vore as a percentage and visualize the results using a barchart. Comment on the results.
+```{r}
+vore <- prop.table(table(msleep$vore))*100
+vore
+```
+```{r}
+barplot(vore,ylab = 'percentage',xlab='vore',col="red")
+```
+#By looking at the plot it is clear that among the giving data the percentage of Herbivores(42.10) are predominantly more and the least percentage of mammals are insentivores(6.57).Omnivores and carnivores are almost in equal range.
+
+#Question 3
+#Filter the data to extract data for just omnivores. Hint: vore == ‘herbi’ and vore == ‘carni’. Calculate the mean sleep_total for that group.
+```{r}
+data <- msleep %>%
+  filter(vore %in% c('herbi','carni')) 
+mean_sleep<-mean(data$sleep_total)
+mean_sleep
+```
+
+#Question 4
+#Create a scatterplot showing the relationship between bodywt and brainwt. Comment on any correlation that is visually apparent. Tip: if you rescale the x and y axis using a logarithmic scale, it may help you to interpret the visualization better e.g. you can append the following to ggplot: scale_x_log10() and scale_y_log10()
+```{r}
+
+ggplot(msleep,aes(x=bodywt,y=brainwt))+geom_point()+scale_x_log10()+scale_y_log10()
+```
+# By observing the plot, it seems that more the bodywt bigger the brainwt.However, not all animals fit this pattern perfectly, indicating there are other things influencing brain weight besides just body weight.
+
+#Question 5
+#Calculate the Pearson coefficient of correlation in R, to evaluate the strength of the correlation between bodywt and brainwt. Did the results support your original assumptions from question 4?
+```{r}
+cor <- cor(msleep$bodywt,msleep$brainwt,use='complete.obs')
+cor
+```
+# Yes, the correlation suggests that bigger animals have bigger brains.
+
+#Question 6
+#Determine which mammals are outliers in terms of sleep_total. Outliers, for the sake of this question,are defined as values that are more than 1.5 standard deviations from the mean. Display the name and sleep_total of the mammals which are outliers.
+```{r}
+x<-msleep$sleep_total
+total_mean<-mean(x)
+total_sd<-sd(x)
+tmin<-total_mean-(1.5*total_sd)
+tmax<-total_mean+(1.5*total_sd)
+outliners<-msleep[x<tmin|x>tmax,c("name","sleep_total")]
+outliners
+```

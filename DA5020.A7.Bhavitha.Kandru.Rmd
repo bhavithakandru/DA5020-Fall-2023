@@ -1,0 +1,134 @@
+---
+title: "DA5020.A7.Bhavitha.Kandru"
+author: "Bhavitha Kandru"
+date: "2023-10-24"
+output: html_document
+---
+
+```{r}
+library(RCurl)
+library(rvest)
+library(XML)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+
+html<-read_html("https://en.wikipedia.org/w/index.php?title=List_of_sovereign_states_by_percentage_of_population_living_in_poverty&diff=prev&oldid=1177591928")
+```
+
+# Question 1.1: Scrape the data from the webpage and extract the following fields: Country, < $1.90, <$3.20, < $5.50, Year and Continent. Prepare the data for analysis and ensure that the columns have meaningful names.
+
+```{r}
+first_table <- html_nodes(html, "table.wikitable")
+data<- data.frame()
+for (row in html_nodes(first_table, "tr")[-1]) {
+  columns <- html_nodes(row, "td")
+  if (length(columns) >= 6) {  
+    country <- html_text(columns[1])
+    less_than_1.15 <- html_text(columns[2])
+    less_than_2.60 <- html_text(columns[3])
+    less_than_3.85 <- html_text(columns[4])
+    year <- html_text(columns[5])
+    continent <- html_text(columns[6])
+
+    # Combine the extracted data into a data frame
+    row <- data.frame(Country = country, Less_than_1.15 = less_than_1.15, Less_than_2.60 = less_than_2.60, Less_than_3.85 = less_than_3.85, Year = year, Continent = continent)
+
+    # Append the row data to the main data frame
+    data <- rbind(data, row)
+  }
+}
+# Trimming the data 
+df1 <- data[1:166, ]
+head(df1)
+```
+```{r}
+#function to convert mixed-format columns to percentages
+convert_to_percentage <- function(x) {
+  ifelse(grepl("%", x), as.numeric(gsub("%", "", x)), as.numeric(x))
+}
+
+# Apply the function to the specified columns
+df1 <- df1 %>%
+  mutate(
+    Less_than_1.15 = convert_to_percentage(Less_than_1.15),
+    Less_than_2.60 = convert_to_percentage(Less_than_2.60),
+    Less_than_3.85 = convert_to_percentage(Less_than_3.85)
+  )
+```
+```{r}
+# Remove newline characters from the Continent column
+df1$Continent <- gsub("\n", "", df1$Continent)
+```
+
+# Question 1.2: Calculate the mean and the standard deviation of the percent of the population living under $5.50 per day for each continent. Perform a comparative analysis (i.e. explanation) of the data from each continent.
+```{r}
+under_5 <- df1%>%
+  select(Continent,Less_than_3.85)%>%
+  group_by(Continent)%>%
+  summarise(mean(Less_than_3.85),sd(Less_than_3.85))
+under_5
+```
+#The summary statistics indicate that poverty prevalence varies across continents. In Africa, the mean (74.28) and standard deviation (25.35) for the percentage of the population living on less than $3.85 per day are higher than in other continents, implying that poverty is more pervasive there. On the other hand, poverty is more concentrated in some Asian nations, as reflected by their lower mean (33.9) but higher standard deviation (30.09). Asia-Europe has the lowest mean (6.7), indicating that poverty is less common there, but the limited sample size (only 2 nations) makes it difficult to generalize. Europe’s mean (5.02) is lower than Asia-Europe’s, but the larger standard deviation (9.22) suggests that poverty levels are more unevenly distributed across European nations. 
+#In contrast, poverty is less of a concern in North America, as reflected by its lower mean (28.54). However, the large standard deviation (20.73) implies that there is still some variation in poverty levels among North American nations. Poverty is also less of a problem in Oceania than in other continents, as indicated by its lower mean (49.19), but the standard deviation (27.42) shows that poverty levels in Oceania vary somewhat. South America’s mean (21.73) is greater than that of Europe and North America but lower than that of Africa and Asia, suggesting that the region’s countries experience less widespread poverty. The standard deviation (12.30) is smaller than that observed in Africa and Asia.
+
+# Question 1.3: What are the 10 countries with the highest percentage of the population having an income of less than $5.50 per day? Using a suitable chart, display the country name, the percentage and color- code by the Continent. Summarize your findings
+```{r}
+high_percent <- df1%>%
+  select(Country,Continent,Less_than_3.85)%>%
+  group_by(Less_than_3.85)%>%
+  arrange(desc(Less_than_3.85))
+#creating a variable with the 10 highest values
+top_ten <- head(high_percent,10)
+top_ten
+```
+```{r}
+#Visualization 
+ggplot(top_ten,aes(Country,Less_than_3.85,color = Continent))+
+  geom_point()+
+  labs(x = "Country", y = "Percentage",title = "Percentage of the population having an income of less than 3.85")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+```
+#The above bar graph give us information about percentage of population having income less than $3.85. The x-axis represents countries,y-axis represents percentage. color represents continent orange indicates Africa and blue indicates Asia, theres only country in the contient asia here.According to the values we got by sorting it for 10 highest values South Sudan has highest percentage of population and the 10th one being Mali with 93.29 percentage of less_3.85.
+
+# Question 1.4: Explore the countries with the lowest percentage of the population having an income of less than $5.50 per day. What are the 5 countries with the lowest percentage, and how does the results compare to the other income groups (i.e. $1.90 and $3.20)?
+```{r}
+tp <- df1%>%
+  select(Country,Continent,Less_than_3.85,Less_than_2.60,Less_than_1.15)%>%
+  group_by(Less_than_3.85)%>%
+  arrange(Less_than_3.85)
+#creating a variable with the 5 highest values
+top5 <- head(tp,5)
+top5
+```
+#We can see that Europe has the most developed and reasonably rich nations, with the lowest percentage of people living on less than $3.85 per day. Similar patterns can be seen in the findings for $2.60 and $1.15, with the majority of the countries located in Europe and having very low percentages.By this we we can tell that Europe has exceptionally low rates of poverty when compared to other regions.For all the 5 countries here less_1.15 is zero.
+
+# Question 1.5 : Extract the data for any two continents of your choice. Fore each continent, visualize the percent of the population living on less than $1.90, $3.20 and $5.50 using box plots. Compare and contrast the results, while ensuring that you discuss the distribution, skew and any outliers that are evident.
+```{r}
+graph <- df1%>%
+  filter(Continent %in% c("Asia","Africa"))
+
+#graph for less_1.15
+graph1 <- ggplot(graph, aes(x=Continent, y=Less_than_1.15,fill = Continent)) +
+  geom_boxplot() +
+  ggtitle("Percent of population living on less than $1.15 by continent")
+
+#graph for less_2.60
+graph2 <- ggplot(graph, aes(x=Continent, y=Less_than_2.60,fill = Continent)) +
+  geom_boxplot() +
+  ggtitle("Percent of population living on less than $2.60 by continent")
+
+#graph for less_5.50
+graph3 <- ggplot(graph, aes(x=Continent, y=Less_than_3.85,fill = Continent)) +
+  geom_boxplot() +
+  ggtitle("Percent of population living on less than $3.85 by continent")
+
+#arranging the graphs in a grid
+grid.arrange(graph1,graph2,graph3,ncol = 3)
+```
+
+#The above boxplots represents the percent of population living on Less_than_1.15,Less_than_2.60 and Less_than_3.85. For two continents Asia and Africa.The bottom of the box represents the 25th percentile of the dataset, which is the value below which 25% of the data falls.The top of the box represents the 75th percentile of the dataset, which is the value below which 75% of the data falls.The whiskers (the lines extending from the top and bottom of the box) show the range of the data within 1.5 times the interquartile range (IQR) of the box.Any points outside the whiskers are potential outliers.
+#The first boxplot give us the percent of population living on Less_than_1.15 in Asia and Africa.The horizontal line in the box represents the median of the population, which is the middle value.Here the median is relatively low suggesting that a significant proportion of the population is living below the poverty line.The data in Asia is right-skewed.There are outliers here which suggest that there are a few countries in Asia and Africa where a particularly high percentage of the population lives on less than $1.15 per day.
+#The second boxplot give us the percent of population living on Less_than_2.60 in Asia and Africa.The horizontal line in the box represents the median of the population, which is the middle value.box plot for Africa has a similar range and median as the box plot for Asia, indicating that a similar percentage of the population in both continents lives on less than $2.60 per day.There are fewer outliers compared to Less_than_1.15
+#The last boxplot give us the percent of population living on Less_than_3.85 in Asia and Africa.The box plot for $3.85 shows a wider box and a longer whisker, indicating a more spread-out distribution.larger percentage of the population in Aisa lives on less than $3.85 per day compared to Africa.

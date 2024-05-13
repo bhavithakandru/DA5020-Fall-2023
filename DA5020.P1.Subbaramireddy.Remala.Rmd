@@ -1,0 +1,257 @@
+---
+title: "DA5020.P1.Subbaramireddy.Remala"
+author: "Practicum Group 9: Subbaramireddy Remala, Anusha Reddy Gaddi, Bhavitha Kandru"
+date: "2023-10-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+
+library(stringr)
+library(skimr)
+library(psych)
+library(janitor)
+library(XML)
+library(xml2)
+library(RCurl)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(lubridate)
+library(scales)
+library(readr)
+
+```
+
+## Part 1: Answer the following questions
+## Part 1: Question 1
+```{r message=FALSE, warning=FALSE}
+# Create the vectors for each variable
+data_doctor <- data.frame(
+  doctor_type = c("PCP", "Psychiatrist", "Surgeon", "Anesthesia"),
+  doctor_lastname = c("Smith", "Dame", "Jones", "Zayas"),
+  location = c("MA", "ME", "NH", "VT"),
+  AVG_Rating = c(7, 9, 8, 9))
+
+# Printing the dataframe
+print(data_doctor)
+
+knitr::include_graphics("~/academics/NEU_BIOINFO/SEM_3/Data Retriving /practicum_1/data_frame_ss.png",error=FALSE)
+```
+
+## Part 1: Question 2
+```{r message=FALSE, warning=FALSE}
+# Select row 1 in column 2
+value_r1_c2 <- data_doctor[1, 2]
+print(value_r1_c2)
+
+# Select rows 2 through 4
+value_r2_4 <- data_doctor[2:4, ]
+print(value_r2_4)
+
+# Select last column
+last_col <- data_doctor[, ncol(data_doctor), drop =FALSE]
+print(last_col)
+```
+
+## Part 1: Question 3
+
+```{r message=FALSE, warning=FALSE}
+data(mtcars)
+```
+
+```{r message=FALSE, warning=FALSE}
+ggplot(mtcars, aes(x = mpg, y = hp, color = factor(cyl)))+
+  geom_point(size = 3) +
+  labs(x = "Miles/Gallon", y = "Horsepower") +
+  scale_color_discrete(name = "Cyl")
+
+```
+
+The variables mpg (miles per gallon) and hp (horsepower) have been specifically chosen for the scatterplot. These variables are deemed crucial when evaluating a car, and the scatterplot allows us to examine the relationship between them. It provides insights into how changes in these variables influence each other. The scatterplot visualizes the distribution of cars based on their horsepower, illustrating how this variation impacts their fuel efficiency (miles per gallon). Additionally, it employs three different colors to represent cars with varying numbers of cylinders.
+
+## Part 1: Question 4
+```{r message=FALSE, warning=FALSE}
+# Summary statistics
+summary(mtcars)
+
+# Calculate the Pearson coefficient of correlation
+p_coe_cor <- cor(mtcars$mpg, mtcars$wt, method = "pearson")
+```
+
+We conducted a summary statistics analysis on the mtcars dataset and calculated the Pearson correlation coefficient between two key variables, namely "mpg" (miles per gallon) and "wt" (weight). These variables are crucial for understanding various aspects of a car's performance. The calculated Pearson correlation coefficient is approximately -0.8676594, indicating a strong negative correlation between mpg and wt in cars.
+
+This negative correlation suggests that mpg and wt are inversely related. In simpler terms, when the weight of a car increases, its miles per gallon tends to decrease. The Pearson coefficient serves as an essential indicator, revealing the direction of the relationship between these variables
+
+
+## Part 2 Practicum Tasks
+## Part 2: Question 1
+
+```{r message=FALSE, warning=FALSE}
+url <- "https://data.ny.gov/api/views/ngbt-9rwf/rows.csv"
+NYS_data <- read.csv(url)
+```
+
+## Part 2: Question 2
+
+```{r message=FALSE, warning=FALSE}
+dim(NYS_data)
+glimpse(NYS_data) 
+summary(NYS_data)
+describe(NYS_data[1:7])
+skim(NYS_data[1:7])
+summary(NYS_data[1])
+summary(NYS_data[7])
+```
+
+The provided dataset consists of 99,367 rows and 7 columns, each with specific attributes. These columns are named: Year, County of Program Location, Program Category, Service Type, Age Group, Primary Substance Group, and Admissions. Among these columns, Year and Admissions are numeric variables, while the others are of character data type.
+
+Notably, there are no missing values in this dataset. County of Program Location exhibits 61 unique values, Program Category contains 6 unique values, Service Type encompasses 28 unique values, Age Group is categorized into 6 unique values, and Primary Substance Group comprises 7 unique values.
+
+Additionally, we observe that the Year column ranges from 2007 as the minimum value to 2021 as the maximum value, with a mean of 2014. Regarding Admissions, the minimum value is 1, the maximum value is 2,861, the mean is approximately 41.91, and the median is 8.00. These statistics provide insights into the central tendencies and variability within the dataset.
+
+```{r, results='hide'}
+# Find outliers
+Ad <- NYS_data$Admissions
+Ad_mean <- mean(Ad)
+Std <- sd(Ad)
+z_score <-(Ad_mean - Ad)/Std
+z_score <-abs(z_score)
+summary(Ad)
+Ad_outliers<-which(z_score>3)
+rm_ad_outliers <- Ad[Ad_outliers]
+```
+
+Clearly, there are outliers present in the dataset, and it's imperative that we take steps to handle them.
+
+
+## Part 2: Question 3
+
+``` {r message=FALSE, warning=FALSE}
+county_code <- c("AL","CA","CN","DE","FR","LE","MG","ON","OL","NY","SL","SY","SV","WR","AG","CY","CL","DU","FU","HE","LI","NA","OD","OS","RE","SA","SE","TI","WS","NY","CH","CO","ER","GE","JE","MA","NY","OT","OG","NY","SC","ST","TO","WA","BM","CM","CR","ES","GR","NY","MO","NI","OR","PU","RO","SH","SU","UL","WE","WY","YA", "HA")
+county_name <- c("Albany","Cattaraugus","Chenango","Delaware","Franklin","Lewis","Montgmery","Oneida","Orleans","Queens","Saint Lawrence", "Schuyler", "Sullivan", "Warren", "Allegany","Cayuga","Clinton","Dutchess","Fulton","Herkimer","Livingston","Nassau","Onondaga","Oswego","Rensselaer","Saratoga","Seneca","Tioga","Washington","Bronx","Chautauqua","Columbia","Erie","Genesee","Jefferson","Madison","New York", "Ontario", "Otsego", "Richmond", "Schenectady", "Steuben", "Tompkins","Wayne","Broome","Chemung","Cortland","Essex","Greene","Kings","Monroe","Niagara","Orange","Putnam","Rockland","Schoharie","Suffolk","Ulster","Westchester","Wyoming","Yates","Hamilton")
+
+county <- data.frame(county_code, county_name)
+
+# Remove duplicates
+county %>% 
+  distinct(county_code,.keep_all = TRUE)
+
+
+program_code <- c("CR", "IP", "OTP", "RE", "OP") 
+program_category <- c("Crisis", "Inpatient", "Opioid Treatment Program", "Residential", "Outpatient")
+
+program_category <- data.frame(program_code, program_category)
+
+program_category %>% 
+  distinct(program_category,.keep_all = TRUE)
+
+
+substance_code <- c("H", "AO", "OO", "A", "C", "M", "N") 
+primary_substance_group <- c("Heroin", "All Others", "Other Opioids", "Alcohol", "Cocaine", "Marijuana", "None")
+
+primary_substance_group <- data.frame(substance_code, primary_substance_group)
+
+primary_substance_group %>% 
+  distinct(primary_substance_group,.keep_all = TRUE)
+
+
+NYS_data <- NYS_data %>% mutate(County.of.Program.Location = county$county_code[match(County.of.Program.Location, county$county_name)],
+         Program.Category = program_category$program_code[match(Program.Category, program_category$program_category)],
+         Primary.Substance.Group = primary_substance_group$substance_code[match(Primary.Substance.Group, primary_substance_group$primary_substance_group)])
+
+data_adm <- data.frame(NYS_data)
+```
+
+
+## Part 2: Question 4
+
+``` {r message=FALSE, warning=FALSE}
+
+
+annualAdmissions <- function(data_adm){
+  
+  adms <- data_adm %>% group_by(Year) %>% summarise(adm_total = sum(Admissions))
+  # print(admissions)
+  
+  adms_max <- max(adms$adm_total)
+  max_Adm_yr <- adms$Year[adms$adm_total == adms_max]
+  
+  chart_adm <- ggplot(adms, aes(x = Year,y = adm_total)) +
+    geom_line(color = "skyblue") +
+    geom_point(color = "blue") +
+    labs(x = "Year", y = "Number of Admissions", title = "Annual Admissions in NY")
+    chart_adm + annotate("point", x=max_Adm_yr, y=adms_max, color="red", size = 4) +
+      annotate("text", x=max_Adm_yr, y=adms_max, label=paste(" ", max_Adm_yr),
+               color="black") +
+      theme_light()
+      
+}
+
+
+annualAdmissions(NYS_data)
+```
+
+The above line chart represents the annual admissions in NY where the x axis denotes the year and the y axis denotes the number of admissions.
+We can see from the above plot that the highest number of admissions took place in the year 2009, as indicated by the annotation.
+
+## Part 2: Question 5
+
+``` {r message=FALSE, warning=FALSE}
+
+countyAdmissions <- NYS_data %>%
+  group_by(County.of.Program.Location) %>%
+  summarise(to_adm = sum(Admissions)) %>%
+  mutate(Percentage = to_adm / sum(to_adm) * 100) %>%
+  arrange(desc(Percentage))
+
+top_5_counties <- countyAdmissions[1:5, ]
+ggplot(top_5_counties, aes(x = County.of.Program.Location, y = Percentage)) +
+  geom_bar(stat = "identity") +
+  labs(x = "County", y = "% of Admissions",
+       title = "Percentage of Admissions in top 5 Counties ") +
+  theme_minimal()
+
+```
+
+The bar graph illustrates the counties with the highest percentage of admissions, highlighting the distribution of admissions across the top 5 counties. The x-axis depicts the individual counties, while the y-axis presents the percentage of admissions.
+
+From the graph, we can discern that New York County boasts the highest percentage of admissions, closely followed by Kings County, Queens County, Suffolk County, and the Bronx.
+
+## Part 2: Question 6
+
+``` {r message=FALSE, warning=FALSE}
+
+
+NYS_data <- NYS_data %>% mutate(Primary.Substance.Group = primary_substance_group$primary_substance_group[match(Primary.Substance.Group, primary_substance_group$substance_code)])
+
+faci_rehab<- NYS_data %>% filter(Service.Type %in% grep("rehab|rehabilitation", Service.Type, ignore.case = TRUE, value = TRUE))
+
+age_agm_subs <- faci_rehab %>%
+  group_by(Age.Group, Primary.Substance.Group) %>%
+  summarise(total_adm = sum(Admissions))
+
+most.psg_group <- age_agm_subs %>%
+  group_by(Age.Group) %>%
+  filter(total_adm == max(total_adm))
+  # mostProminentSubstances
+
+ggplot(most.psg_group, aes(x = Age.Group, y = total_adm, fill = Primary.Substance.Group)) +
+  geom_col() +
+  labs(x = "Age Group", y = "Number of Admissions",
+       title = "Rehab facilities - Most prominent among each Age Group") +
+  theme_light() 
+```
+
+The plot reveals distinct patterns in the most prominent substances among various age groups receiving rehabilitation services. Specifically:
+
+- For individuals aged 18 to 24 and 25 to 35, heroin emerges as the predominant substance.
+- In the age groups 35 to 44, 45 to 54, and 55 and above, alcohol takes precedence as the primary substance.
+- Among those under the age of 18, marijuana stands out as the most prominent substance.
+
+This analysis underscores how the choice of substance varies across age demographics within the rehabilitation facility population. 

@@ -1,0 +1,146 @@
+---
+title: "DA5020.A4.Bhavitha.Kandru"
+author: "Bhavitha Kandru"
+date: "2023-10-01"
+output: 
+  html_document: default
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(scales)
+library(lubridate)
+```
+
+```{r}
+#loading data
+tripdata_df<-read.csv("/Users/bhavithakandru/Desktop/6020/data/2018_Green_Taxi_Trip_Data.csv")
+```
+
+#2. Filter the data and extract the date with the most trips. Do you detect anything interesting (or unusual) with the trips that occurred on that day
+```{r}
+pick<- mdy_hm(tripdata_df$lpep_pickup_datetime)
+trip_date <- tripdata_df %>%
+  mutate(pick_date = pick)
+
+trip_count <- trip_date %>% 
+  group_by(date=date(pick_date)) %>% 
+  summarise(count=n())
+
+sort(table(trip_count), decreasing = FALSE)
+trip_cou <- as.data.frame(trip_count)
+trip_date_count <- trip_cou[order(trip_cou$count, decreasing = TRUE),]
+
+trip_date_count[1,]
+```
+
+#Question 1: Inspect the data and identify at least three columns/fields that should be represented as factors and convert their respective data types to a factor. Hint: make use of the data dictionary to understand the range of values for each field
+```{r}
+payment_type<-as.factor(tripdata_df$payment_type)
+pickup<-as.factor(tripdata_df$trip_type)
+dropoff<-as.factor(tripdata_df$store_and_fwd_flag)
+```
+
+#Question 2: Analyze the data to determine what is the most common way that people: a) hail a cab and b) pay for the trip. Helpful fields are: trip_type and payment_type. Explain your results
+```{r}
+typecounts <- tripdata_df %>%
+  group_by(trip_type) %>%
+  summarise(n = n())
+payment_type_counts <- tripdata_df %>%
+  group_by(payment_type) %>%
+  summarise(n = n())
+
+# Find the most common way people hail a cab (trip_type)
+most_common_trip_type <- typecounts %>%
+  filter(n == max(n)) %>%
+  select(trip_type, n)
+
+# Find the most common way people pay for the trip (payment_type)
+most_common_payment_type <- payment_type_counts %>%
+  filter(n == max(n)) %>%
+  select(payment_type, n)
+
+print(paste("Most common way people hail a cab:",most_common_trip_type))
+print(paste("Most common way people pay for the trip:",most_common_payment_type))
+```
+# The majority of people hail a cab through street-hailing (trip_type 1).
+# The predominant payment method for the trips is credit card payments (payment_type 1)
+
+#Question 3: Count the frequency of pickups for each day in February (exclude any other months pickups). Visualize the results using a bar chart and show the frequency on the y-axis and the date on the x-axis. Do you detect any patterns? What are your observations? Note: do not include the time in your calculations or the visualization (only use the date).
+```{r}
+tripdata_df$pickup_date <- as.Date(tripdata_df$lpep_pickup_datetime)
+
+# Filter the data for pickups in February
+february_pickups <- tripdata_df %>%
+  filter(month(pickup_date) == 2)
+
+# Group by date and count the pickups for each date
+pickup_counts_per_day <- february_pickups %>%
+  group_by(pickup_date) %>%
+  summarise(pickup_count = n())
+
+# Create a bar chart to visualize the frequency of pickups for each date in February
+ggplot(pickup_counts_per_day, aes(x = pickup_date, y = pickup_count)) +
+  geom_bar(stat = "identity", fill = "purple") +
+  labs(title = "Frequency of Pickups for Each Day in February",
+       x = "Date",
+       y = "Pickup Frequency")
+```
+
+#The frequnecy on 2/2/2018 is at the highest compared to the rest of the days.
+
+#Question 4: Create a function called HourOfDay() that takes one argument which is a textual representation of a timestamp in the format ‘YYYY-MM-DD HH:MM:SS’ and uses a regular expression to extract the hour (or you can use the lubridate package to extract the hour). For example, the function should take a timestamp in the following format: ‘2020-02-01 11:10:25’ and return ‘11’. note: 2018 date format is a bit different
+```{r}
+HourOfDay <- function(timestamp) {
+  if (grepl("^\\d{2}/\\d{2}/\\d{4} \\d{2}:\\d{2}:\\d{2}$", timestamp)) {
+    hour <- gsub("^\\d{2}/\\d{2}/\\d{4} (\\d{2}):\\d{2}:\\d{2}$", "\\1", timestamp)
+  } else {
+    hour <- gsub("^\\d{4}-\\d{2}-\\d{2} (\\d{2}):\\d{2}:\\d{2}$", "\\1", timestamp)
+  }
+  return(hour)
+}
+
+hourofday <- function(timestamp){
+  form <- parse_date_time(timestamp,c("dmy HM"))
+  out <- hour(form)
+}
+# Extract time
+timestamp1<- "2020-02-01 11:10:25"
+timestamp2<- "2018-05-15 08:45:30"
+# Extract hours
+hour1 <- HourOfDay(timestamp1)
+hour2 <- HourOfDay(timestamp2)
+
+print(paste("Hour from timestamp 1:", hour1))
+print(paste("Hour from timestamp 2:", hour2))
+
+sss <- hourofday(tripdata_df$lpep_pickup_datetime)
+
+```
+#Question 5: In a new R chunk, apply the function HourOfDay() using each value in the lpep_pickup_datetime column and save the results in a new column called lpep_pickup_hour. Hint: you can use the mutate function in dplyr to apply your function to each row in the dataframe
+```{r}
+tripdata_df <- tripdata_df %>%
+  mutate(lpep_pickup_hour = sss)
+
+#glimpse(tripdata_df)
+
+```
+
+#Question 6: Report the median trip distance grouped by the lpep_pickup_hour. Visualize the results and explain any patterns you observed based on the hour of day.
+```{r}
+# Group by lpep_pickup_hour and calculate the median trip distance for each hour
+median_trip_distance_by_hour <- tripdata_df %>%
+  group_by(lpep_pickup_hour) %>%
+  summarise(median_trip_distance = median(trip_distance))
+median_trip_distance_by_hour
+# Visualize median trip distance by pickup hour
+ggplot(median_trip_distance_by_hour, aes(x = lpep_pickup_hour, y = median_trip_distance)) +
+  geom_col() +
+  labs(title = "Median Trip Distance by Pickup Hour",
+       x = "Hour of Day",
+       y = "Median Trip Distance")
+
+```
+#The analysis shows that trip distances peak during morning rush hours (5 AM - 9 AM) and late evening (around midnight).In contrast, mid-morning to early afternoon (9 AM - 3 PM) sees the shortest trips.Understanding these patterns is crucial for optimizing transportation services.

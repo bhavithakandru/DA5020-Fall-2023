@@ -1,0 +1,126 @@
+---
+title: "DA5020.A5.Bhavitha.Kandru"
+author: "Bhavitha Kandru"
+date: "2023-10-10"
+output:
+  html_document: default
+---
+
+```{r}
+library(XML)
+library(RCurl)
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(scales)
+library(lubridate)
+```
+
+#Question 1: Load the XML data directly from the URL below into a data frame (or tibble) and display the dimensions of the data.
+
+```{r}
+xml_url <- "https://www.senate.gov/general/contact_information/senators_cfm.xml"
+xml_data <- getURL(xml_url)
+xml <- xmlParse(xml_data,useInternal=TRUE)
+senator_nodes <- getNodeSet(xml, "//member")
+senators_df <- data.frame(
+  First_Name = sapply(senator_nodes, function(x) xmlValue(xmlChildren(x)[["first_name"]])),
+  Last_Name = sapply(senator_nodes, function(x) xmlValue(xmlChildren(x)[["last_name"]])),
+  Party = sapply(senator_nodes, function(x) xmlValue(xmlChildren(x)[["party"]])),
+  State = sapply(senator_nodes, function(x) xmlValue(xmlChildren(x)[["state"]])),
+  Phone = sapply(senator_nodes, function(x) xmlValue(xmlChildren(x)[["phone"]])),
+  Email = sapply(senator_nodes, function(x) xmlValue(xmlChildren(x)[["email"]])),
+  Website = sapply(senator_nodes, function(x) xmlValue(xmlChildren(x)[["website"]])), 
+  Class = sapply(senator_nodes, function(x) xmlValue(xmlChildren(x)[["class"]])),
+  Bioguide_id = sapply(senator_nodes, function(x) xmlValue(xmlChildren(x)[["bioguide_id"]])),
+  stringsAsFactors = FALSE)
+dim(senators_df)
+```
+
+#Question 2: Construct a regular expression (regex) to extract only the first, last names, and party (D,R,I) of each senator; the regex should remove their middle initial and/or suffix e.g. remove Jr. III, etc. Ensure that the updated names are reflected in the dataframe.
+
+```{r}
+# Remove middle initials and suffixes from names using regular expressions
+senators_df$First_Name <- gsub("\\s[A-Z]\\s?|", "", senators_df$First_Name)  
+senators_df$Last_Name <- gsub("\\s(Jr\\.|III)$", "", senators_df$Last_Name)  
+senators_df$First_Name <- gsub("[.,]", "", senators_df$First_Name) 
+```
+
+#Question 3: Create a function called senatorsByState() which takes the two letter abbreviation for a US State as its input argument and displays the first name, last name and party of each senator for the selected state. For example, if the user enters ‘MA’ your function should display a message that is similar to the following: “The senators for MA are: Edward Markey, Democratic Party and Elizabeth Warren, Democratic Party"
+
+```{r}
+party_df <- senators_df
+party_df$Party<-ifelse(party_df$Party=="R","Republican",
+                          ifelse(party_df$Party=="D","Democratic","Independent"))
+senatorsByState <- function(state) {
+  if (nrow(senator<-subset(party_df,State==state)) == 0) {
+    cat("No senator was not found in the giving data")
+  } else {
+    name<-paste(senator$First_Name,senator$Last_Name)
+    cat(paste("The senators for", state, "are:", name, "," , senator$Party,"Party"),sep = " and ")
+  }
+}
+senatorsByState("MA")
+```
+
+#Question 4:Download the attached csv file from Canvas and load it in your R environment. Perform steps to tidy the data and the prepared data should be divided across two tibbles named country_name and indicator_data. The country_name tibble should contain the country name and country code (ensure that you remove duplicates), and the indicator_data tibble should include the country_code, year, and value. Note: Tidy the data using pivot_longer(), pivot_wider() and separate(), where applicable.
+
+```{r}
+data<-read.csv("/Users/bhavithakandru/Desktop/6020/data/Ratio Of Female To Male Youth Unemployment Rate .csv")
+
+# Define the key columns
+key_cols <- c("Country.Name", "Country.Code", "Indicator.Name", "Indicator.Code")
+
+# Tidy the data using pivot_longer to convert year columns into rows
+data_tidy <- data %>%
+  select((-c(5:35))) %>% 
+  na.omit() %>% 
+  pivot_longer(cols = c("X1991":"X2020"), names_to = "Year", values_to = "Value") 
+
+# Separate the "Year" column into "X" and the actual year
+data_tidy <- data_tidy %>%
+  separate(Year, into = c("X", "Year"), sep = "X", convert = TRUE)
+
+# Create the "country_name" tibble by removing duplicates
+country_name <- data_tidy %>%
+  select(Country.Name, Country.Code) 
+
+# Create the "indicator_data" tibble
+indicator_data <- data_tidy %>%
+  select(Country.Code, Year, Value)
+
+```
+
+#Question 5: Select five countries from each of the following continents: North America, Asia and Middle East. Visualize their respective data from the last 20 years using a line chart; use facet_wrap to display the data for each continent in its own chart. Explain your observations about the ratio of female to male youth unemployment rate in the selected regions.
+
+```{r}
+continent<-read.csv("/Users/bhavithakandru/Desktop/6020/data/Country Meta-Data.csv")
+
+country_df<-data.frame(
+  Region = c("North America", "North America", "North America", "North America", "North America", "Asia", "Asia", "Asia", "Asia", "Asia", "Middle East", "Middle East", "Middle East", "Middle East", "Middle East"),
+  Country.Name = c("United States", "Jaimaica", "Cuba", "Canada", "Mexico", "India", "China", "Malaysia", "Thailand.", "Indonesia", "United Arab Emirates", "Iran, Islamic Rep.", "Israel", "Oman", "Iraq"))
+
+region_df<- country_df %>% 
+  left_join(country_name,by="Country.Name") %>% 
+  left_join(indicator_data,by="Country.Code") %>% 
+  filter(Year %in% c(2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020))
+
+ggplot(region_df, aes(Year, Value, color = Country.Name)) +
+  geom_line(aes(group = Country.Name)) +
+  facet_wrap(~Region, nrow = 3)+
+  labs(
+    x = "Year",
+    y = "Youth Unemployment Rate",
+    title = "Youth Unemployment Rate Over Time"
+  ) +
+  theme_minimal() 
+```
+
+#Three-line charts show each continent's female-to-male youth unemployment rate. The first line graph is for Asia, the second for the Middle East, and the third for North America. The X-axis represents the year, while the Y-axis represents the value. 
+
+#In Asia, there has been no drop or growth in unemployment in China. 
+
+#In the Middle East, most nations' unemployment rate has progressively climbed. In Oman, the unemployment rate has gradually increased. 
+
+#The unemployment rate in North America is low and on the decline. Mexico had a higher unemployment rate in 2001, which has declined somewhat through 2020.

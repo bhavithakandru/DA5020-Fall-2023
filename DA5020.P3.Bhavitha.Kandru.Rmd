@@ -1,0 +1,385 @@
+---
+title: "DA5020.P3.Bhavitha.Kandru"
+author: "Bhavitha Kandru, Anusha Reddy Gaddi, Subbaramireddy Remala "
+date: "2023-12-07"
+output: html_document
+---
+
+# loading Packages
+```{r}
+library(tidyverse)
+library(dplyr)
+library(readr)
+library(XML)
+library(RSQLite)
+library(xml2)
+library(RCurl)
+library(stringr)
+library(stringi)
+library(ggplot2)
+library(tidyr)
+library(lubridate)
+library(scales)
+library(sqldf)
+library(DBI)
+library(Hmisc)
+library(psych)
+library(class)
+library(caret)
+```
+
+# Question 1
+## CRISP-DM: Data Understanding
+Load the NYC Green Taxi Trip Records data into a data frame or tibble.
+Data exploration: explore the data to identify any patterns and analyze the relationships between the
+features and the target variable i.e. tip amount. At a minimum, you should analyze: 
+1) the distribution,
+2) the correlations 
+3) missing values and 
+4) outliers — provide supporting visualizations and explain
+all your steps.
+
+```{r}
+#Load Data
+tripdata_df<-read_csv("~/Downloads/P3smaller.csv")
+dim(tripdata_df)
+glimpse(tripdata_df)
+summary(tripdata_df)
+```
+
+```{r}
+# plot histogram of all variables by using key-value pair mechanism
+ggplot(gather(head(tripdata_df)), aes(x = value, fill = value)) +
+  geom_histogram(binwidth = 20, stat = "count") +
+  facet_wrap(~key, scales = "free_x")
+```
+
+```{r}
+#Finding number of NA
+sum(is.na(tripdata_df))
+```
+
+```{r}
+# create boxplot for continuous variables with most outliers
+boxplot(tripdata_df[, c(8:11, 13, 14, 17)])
+```
+
+```{r}
+# convert character variables to dates
+tripdata_df$lpep_pickup_datetime <- as.Date(tripdata_df$lpep_pickup_datetime)
+tripdata_df$lpep_dropoff_datetime <- as.Date(tripdata_df$lpep_dropoff_datetime)
+# convert character variables to numeric
+tripdata_df$total_amount <- as.numeric(as.factor(tripdata_df$total_amount))
+tripdata_df$fare_amount <- as.numeric(as.factor(tripdata_df$fare_amount))
+tripdata_df$store_and_fwd_flag <- as.numeric(as.factor(tripdata_df$store_and_fwd_flag))
+```
+
+Answer:
+
+Using the read.csv() function, we import the CSV file into R and assign it to the object taxi. When we run dim() on taxi, we observe that the dataset has 3,986 rows and 20 columns. When we run peek() on taxi, we notice that 5 character variables must be converted. We execute summary() on taxi and find outliers in variables like trip_distance, tip_amount, and tolls_amount. We draw a histogram for each variable with the ggplot() function using the key-value pair approach. The mta_tax histogram is biased to the left, whereas the tip_amount histogram is skewed to the right. We use the is.na() method to count the missing entries in the data frame and discover 9600 missing values.The total number of values in the data collection. Then, we generate a boxplot for the continuous variables with the most outliers, such as passenger_count, trip_distance, fare_amount, extra, tip_amount, tolls_amount, and total_amount. Using the as.Date() method, we transform the two date character variables lpep_pickup_datetime and lpep_dropoff_datetime to dates. We use the as.numeric() function to convert the remaining three character variables total_amount, fare_amount, and store_and_fwd_flag to numeric.
+
+```{r}
+#Analysis of Correlation and Distribution
+# create correlation matrix for continuous variables
+tripdata_df_cor <- cor(tripdata_df[c("PULocationID",  "DOLocationID", "passenger_count",  "trip_distance", "fare_amount", "extra", "mta_tax", "tip_amount", "tolls_amount", "improvement_surcharge", "total_amount")])
+tripdata_df_cor
+```
+
+```{r}
+# create correlation & distribution panel visualization for continuous variables
+pairs.panels(tripdata_df[c("PULocationID",  "DOLocationID", "passenger_count",  "trip_distance", "fare_amount", "extra", "mta_tax", "tip_amount", "tolls_amount", "improvement_surcharge", "total_amount")])
+```
+
+Answer: 
+
+Using the cor() function, we generate a correlation matrix of all variables except category, date, NA variables, and congestion_surcharge (because of its tiny range of values) and assign the result to taxi_cor. There is a substantial positive link between mta_tax and improvement_surcharge, but no strong correlations exist between any factors and the tip_amount Outcome variable. For the continuous variables, we use the pairs.panels() method to show the matrix.
+
+# CORRELATION: 
+Trip_distance, mta_tax, and total_amount all show low positive associations with tip_amount, while extra has a negative connection. Fare_amount and trip_distance are multicollinear. Tip_amount is strongly correlated with fare_amount and trip_distance. The negative medium connection between extra and mta_tax exists. There is no relationship between the improvement_surcharge and the passenger_count. Tip_amount (dependent/response variable) has no substantial association with other independent variables.
+
+# PARTICIPATION IN EACH FIELD: 
+The charts shown above clearly show that
+PULocationID, DOLocationID: NORMAL DISTRIBUTION TOTAL_AMOUNT, EXTRA, TRIP_DISTANCE, FARE_AMOUNT, TIP_AMOUNT ARE ALL RIGHT-SKEW DISTRIBUTION DISTRIBUTION ON THE LEFT SKEW: None BIMODEL (NON-SYMMETRIC): mta_tax, tolls_amount, improvement_surcharge U-QUADRATIC DISTRIBUTION: None
+No linear model makes any assumptions about the distribution of the independent variables, whether they are typically distributed, non-normally distributed, or skewed. The regression model focuses solely on the result variable.
+
+# Question 2
+## CRISP-DM: Data Preparation
+Prepare the data for the modeling phase and handle any issues that were identified during the
+exploratory data analysis. At a minimum, ensure that you:
+1) Preprocess the data: handle missing data and outliers, perform any suitable data transformation
+steps, etc. Also, ensure that you filter the data. The goal is to predict the tip amount, therefore you
+need to ensure that you extract the data that contains this information. Hint: read the data dictionary.
+2) Normalize the data: perform either max-min normalization or z-score standardization on the
+continuous variables/features.
+3) Encode the data: determine if there are any categorical variables that need to be encoded and
+perform the encoding.
+4) Prepare the data for modeling: shuffle the data and split it into training and test sets. The percent
+split between the training and test set is your decision. However, clearly indicate the reason.
+```{r}
+#remove ehail_fee column with NA values
+taxi <- tripdata_df %>%
+  select(-ehail_fee)
+
+#remove missing values from taxi
+trip <- na.omit(taxi)
+head(trip)
+```
+
+```{r}
+# create function to identify outliers
+outliers <- function(x) {
+  Q1 <- quantile(x, probs=.25)
+  Q3 <- quantile(x, probs=.75)
+  iqr = Q3-Q1
+ upper_limit = Q3 + (iqr*1.5)
+ lower_limit = Q1 - (iqr*1.5)
+ x > upper_limit | x < lower_limit
+}
+# create function to remove outliers
+remove_outliers <- function(df, cols = names(df)) { for (col in cols) {
+    df <- df[!outliers(df[[col]]),]
+  }
+df }
+# remove outliers by applying function remove_outliers()
+deleted_outliers <- remove_outliers(trip, c("PULocationID",  "DOLocationID",  "trip_distance", "fare_amount"))
+# check updated number of rows with dim()
+dim(deleted_outliers)
+```
+
+```{r}
+# arrange tip_amount column in desc order and reassign data frame to transform
+transform <- deleted_outliers %>%
+  filter() %>%
+  arrange(desc(tip_amount))
+head(transform)
+```
+
+Answer:
+
+Using the select() method, we delete the ehail_fee column because the whole column contains NA values and give the modified dataset to taxi_main. Using the na.omit() method, we delete the NA values from taxi and assign the data frame to trip. With the head() method, we can see that the generated data frame trip now includes 19 columns. Then, in the trip data frame, we develop a function to find outliers and assign it to outliers. We write an outlier removal function and call it remove_outliers. We use the remove_outliers() method to remove outliers from the correlation matrix and assign the results to deleted_outliers. We use dim() to examine the dimensions of deleted_outliers and see that there are now 2546 entries in the dataset.The tip_amount column is then arranged in descending order, and the result is assigned to a new data frame, transform. We examine the transform head() function and the values in that column, sorted from largest to least. 
+
+```{r}
+# create min-max normalization function
+min_max <- function(x) {
+(x - min(x)) / (max(x) - min(x))
+}
+# apply min-max normalization to columns in trip
+trip_3 <- as.data.frame(lapply(deleted_outliers[,c(6:14, 16)], min_max))
+# view dimensions of trip_3
+dim(trip_3)
+```
+
+```{r}
+# remove unnecessary columns from trip_3 and assign to taxi_df
+taxi_df <- trip_3 %>%
+  select(-tolls_amount, -PULocationID, -DOLocationID)
+# view head() of taxi_df
+head(taxi_df)
+```
+
+```{r}
+taxi$store_and_fwd_flag <- as.numeric(as.factor(taxi$store_and_fwd_flag))
+#convert taxi_df to data frame called green_taxi
+green_taxi <- as.data.frame(taxi_df)
+head(green_taxi)
+```
+
+```{r}
+# wrangle the data for regression model and assign to taxi2018
+taxi2018 <- green_taxi[, c(1:5, 7, 6)]
+head(taxi2018)
+```
+
+Answer: 
+
+We developed min_max, a function for min-max normalization. We used the lapply() function on deleted_outliers, choosing the continuous variables, and assigned it to trip_3. We use dim() to get the dimensions of trip_3 and discover that it has 2546 rows and 10 columns. Using the select() method, we eliminate any extraneous columns and reassign the data frame to taxi_df. We delete tolls_amount because we received NA values from min-max normalization, and we remove PULocationID and DOLocationID because we do not believe they are important for this study or have an influence on the Outcome variable tip_amount based on their descriptions in the data dictionary. We look at the head() function of taxi_df and notice that the data frame now has 7 columns. When we look at the original data frame taxi, we notice that the only categorical variable that needed to be encoded was store_and_fwd_flag, which we had already transformed to numeric. There are no category variables to encode in green_taxi. We use the as.data.frame() method to convert taxi_df to a data frame and assign it to green_taxi. When we look at the head() function of green_taxi, we notice that it is now a data frame with row numbers. Finally, in green_taxi, we rearrange the column numbers to prepare the data for modeling by placing the Outcome variable, tip_amount, last. We name the new data frame taxi2018 and inspect it with head(), noting that tip_amount is now the data frame's seventh and final column. 
+
+```{r}
+# set seed
+set.seed(1)
+# set 70% of data as training set and 30% of data as test set
+sample1 <- sample(c(TRUE, FALSE), nrow(taxi2018), replace=TRUE, prob=c(0.7,0.3))
+# 70% of data as train
+data_train <- as.data.frame(taxi2018[sample1, ])
+head(data_train)
+```
+```{r}
+# 30% of data as test
+data_test <- as.data.frame(taxi2018[!sample1, ])
+head(data_test)
+
+# separate data frame for tip_amount as Train
+Train <- taxi2018[sample1, 7]
+head(Train)
+
+# separate data frame for tip_amount as Test
+Test <- taxi2018[!sample1, 7]
+head(Test)
+```
+
+
+Answer:  
+
+To generate a specific series of random values, we set seed to 1 using the set.seed() method. We opted to split 70% of the data into the training set and 30% into the set since this is the most efficient split compared to an 80%/20% split and results in more accurate prediction values. To split, we utilize the sample() method. Using the as.data.frame() method, we assign each divided data frame to data_train and data_test, respectively. We use the head() method to inspect the data frames. We also assign the split values from the Outcome variable, tip_amount, to Train and Test.
+
+# Question 3
+## CRISP-DM: Modeling
+In this step you will develop the k-nn regression model. Create a function with the following name
+and arguments: knn.predict(data_train, data_test, k);
+1) data_train represents the observations in the training set,
+2) data_test represents the observations from the test set, and
+3) k is the selected value of k (i.e. the number of neighbors).
+
+Perform the following logic inside the function:
+1) Implement the k-nn algorithm and use it to predict the tip amount for each observation in the test
+set i.e. data_test.
+Note: You are not required to implement the k-nn algorithm from scratch. Therefore, this step
+may only involve providing the training set, the test set, and the value of k to your chosen k-nn
+library.
+2) Calculate the mean squared error (MSE) between the predictions from the k-nn model and the
+actual tip amount in the test set.
+3) The knn-predict() function should return the MSE. 
+```{r}
+# create function predict()
+knn.predict <- function(data_train, data_test, k){
+predicted_tip_amount <- knn(data_train, data_test, cl = Train, k)
+predicted_tip <- as.data.frame(predicted_tip_amount)
+predicted_tip$predicted_tip_amount <- as.numeric(as.character(predicted_tip$predicted_tip_amount))
+
+actual <- (data_test$tip_amount)
+
+original <- as.data.frame(actual)
+
+class(predicted_tip$predicted_tip_amount)
+class(actual)
+ {
+  MSE <- mean((original$actual - predicted_tip$predicted_tip_amount)^2)
+  }
+  return(MSE)
+}
+knn.predict(data_train,data_test,k=3)
+```
+
+Answer:
+
+First, we wrote a method named knn.predict() that took three arguments: data_train, data_test, and k(k_value). After that, we used the knn inbuilt function from the "class" package, passing data_train(dataframe), data_test(dataframe), cl(factor of true classification of training set(Train)), and k value to predicted_tip_amount. Because the above prediction produced a "list," we turned it to a data frame using the as.data.frame function and assigned it to predicted_trip. Second, we discovered that the column type in the transformed data frame was character. We used the as.numeric() method to convert the character type column to a numeric column. In the following step, we established a new variable "actual" using the tip_amount column from the split's test data set (data_test). We created a data frame called actual and assigned it to the object original. We examined the class() of predicted_tip_amount from predicted_tip, as well as the class() of real. Finally, we calculated the Mean Squared Error for tip_amount using the formula mean((originalactual predticted_tippredicted_tip_amount)2) and labeled it "MSE." We send the input MSE to the return() method. When we provide the appropriate arguments (train data, test data, and k), the function will return the MSE value.
+
+# Question 4
+## CRISP-DM: Evaluation
+1) Determine the best value of k and visualize the MSE. This step requires selecting different values
+of k and evaluating which produced the lowest MSE. At a minimum, ensure that you perform the
+following:
+2) Provide at least 20 different values of k to the knn.predict() function (along with the training set
+and the test set).
+Tip: use a loop! Use a loop to call knn.predict() 20 times and in each iteration of the loop, provide
+a different value of k to knn.predict(). Ensure that you save the MSE that’s returned.
+3) Create a line chart and plot each value of k on the x-axis and the corresponding MSE on the y-axis.
+Explain the chart and determine which value of k is more suitable and why.
+4) What are your thoughts on the model that you developed and the accuracy of its predictions?
+Would you advocate for its use to predict the tip amount of future trips? Explain your answer.
+```{r}
+# create list of values for for loop
+k_list <- list(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20) 
+
+if (any(is.na(data_train)) | any(is.na(data_test)) | any(is.na(Train))) {
+# Handle missing values here, either by imputation or removal
+}
+
+for(i in k_list) {
+  knn_model <- knn.predict(data_train, data_test, k = i)
+  k_list[[i]] <- print(knn_model)
+}
+```
+
+Answer:
+
+We use a list instead of a vector since it is just as simple and handy. We made a list with a random sequence of numbers ranging from 1 to 20(1:20) and assigned it to k_list to generate list of values for for loop cycle over items using "for" (definite) loop. And we calculated that the number of integers in a list (each integer) equals k(k_value). The for loop is then used to repeat a certain code sequence. We established a regression model, knn_model, within the loop by feeding inputs train data, test data, and k value to the knn.predict function from Question 3.Finally, we use the print command to produce the knn_model variable and assign all of the values in the list using double brackets. It returns the Mean Squared Error (MSE) for all k values in the list.
+ 
+```{r}
+# unlist above output k_list and convert to data frame
+df <- data.frame(matrix(unlist(k_list), nrow=length(k_list), byrow=TRUE))
+# rename the columns and assign to mse
+mse <- rename(df, MSE = matrix.unlist.k_list...nrow...length.k_list...byrow...TRUE.)
+mse
+```
+
+```{r}
+# create a new vector with a sequence of values and convert to data frame
+k_value <- c(1:20)
+duplicate <- as.data.frame(k_value)
+# use cbind() to bind 2 columns from different data frames
+eval <- as.data.frame(cbind(mse$MSE, duplicate$k_value)) 
+# rename columns and assign to eval3
+eval3 <- rename(eval, Mean_Error = V1,K_Value = V2)
+# reshape position of columns and assign to main
+main <- eval3[,c(2,1)]
+main
+```
+
+```{r}
+# create line plot of eval3
+visualize <- eval3 %>%
+  ggplot(aes(x = K_Value, y = Mean_Error, color = Mean_Error)) +
+  geom_line(stat = "identity", position = "identity") 
+#print visualization knn_visualize
+visualize
+```
+
+Answer:
+
+Because the preceding result is in list format, we changed it to a data frame by unlisting the k_list and passing the arguments: (nrow = length of list and byrow = TRUE). The column was then renamed mse and assigned to "KNN_MSE" using the rename(dplyr) function. We built a vector containing a random sequence of numbers from 1 to 20 and set it to k_values before converting it to a data frame named duplicate using as.data.frame(). To bind the columns of the various data frames, we utilize the cbind() method. The merged columns are renamed Mean_Error and K_Value, and they are allocated to the new variable eval3. The column position is reshaped, and the result is assigned to main.
+
+# Visualization: 
+Using a pipe function, we built a visualization using the before mentioned dataset eval3. We color by Mean_Error for each K_Value on the x-axis and matching Mean_Error values on the y-axis. To place each value of K_value on the x-axis.
+
+# Observation:
+The line chart shows that as the value of k grows, so does the mean_square_value along the graph. It implies that the two values are directly proportional, and the line graph shows some variations within the mean_square_values. K_value 1 has the lowest Mean_Square_Value, while K_value 20 has the greatest Mean_Square_Value. The graph has a positive slope and is linear with slight oscillations. Lower Mean_Error values indicate the best fit model; if the number is 0 or close to 0, the model fits flawlessly. The result and graph show that the K_Value has 1 with the lowest MSE and is close to zero (0). As a result, it best fits the regression model and is more accurate than the other values. The model that we constructed was fit by comparing its accuracy with different k_values and data splits. So, with a 70/30 (train/test) split and a k_value of 1, the best fit model was feasible. All of the projections based on the before mentioned data ranged between "65-78". Finally, by using the right K_Values based on the data and splitting the original data, this model proved beneficial for forecasting the future values of the tip_amount of future visits.
+
+# Question 5:In this optional (bonus) question, you can: 1) use your intuition to create a compelling visualization that tells an informative story about one aspect of the dataset OR 2) optimize the k-nn model and evaluate the effect of the percentage split, between the training and test set, on the MSE. Choose ONE of the following:
+
+1) Create a compelling visualization that tells an informative story about how these cabs are used. OR
+2) Evaluate the effect of the percentage split for the training and test sets and determine if a different split
+ratio improves your model’s ability to make better predictions
+```{r}
+# set seed
+set.seed(1)
+# set 80% of data as training set and 20% of data as test set
+sample2 <- sample(c(TRUE, FALSE), nrow(taxi2018), replace=TRUE, prob=c(0.8,0.2))
+train <- taxi2018[sample2, ]
+head(train)
+
+test <- taxi2018[!sample2, ]
+head(test)
+data.train <- taxi2018[sample2, 7]
+data.test <- taxi2018[!sample2, 7]
+```
+
+Answer:
+
+First, we divided the data into train and test data sets with probabilities of 80% and 20%, respectively. Then, using the data taxi2018, we built separate data frames for the train and test data sets and assigned them to train and test, respectively. For the tip_amount column, we created separate train and test data frames.
+
+```{r}
+#Model Evaluation to find the accuracy of the model using different k values #70-30 model(Created for loop for accuracy for the different k values) 
+m_value <- list(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
+i = "k"
+for(i in m_value) {
+knn_model <- knn(data_train, data_test, cl = Train, k = i) 
+acc <- 100 * sum(Test == knn_model)/NROW(Test) 
+m_value[[i]] <- print(acc)
+}
+#80-20 model(Created for loop for accuracy for the different k values)
+n_value <- list(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20) 
+i = "k"
+for(i in n_value) {
+  knn_model <- knn(train, test, cl = data.train, k = i)
+  acc <- 100 * sum(data.test == knn_model)/NROW(data.test)
+  n_value[[i]] <- print(acc)
+}
+```
+
+Answer: 
+
+We are using a for loop to go over the elements in the list that we built using m_value and n_value. Within the loop, the arguments for calculating the model's accuracy with distinct k values for the two separate split data sets were supplied. The predictions are calculated using the knn function from the library, and the accuracy is assessed using the formula 100 * sum(test == knn_model)/NROW(test). Finally, using the print function, print the correctness of each value in the list for the two separate divided data sets and assigned to m_value and n_value using double brackets to output the list's every value.
+
+# Observation: 
+The result of the previous two demonstrates that split data with probability(70/30) has more accurate values than split data with probability(80/20). However, the accuracy values of the two datsets are nearly identical.

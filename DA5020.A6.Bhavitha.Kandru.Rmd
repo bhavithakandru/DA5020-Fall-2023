@@ -1,0 +1,121 @@
+---
+title: "DA5020.A6.Bhavitha.Kandru"
+author: "Bhavitha Kandru"
+date: "2023-10-18"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(DBI)
+library(RSQLite)
+library(ggplot2)
+library(scales)
+```
+
+```{r}
+mydb<- dbConnect(SQLite(), "/Users/bhavithakandru/Desktop/6020/data/imdb.db")
+dbListTables(mydb)
+```
+
+# What is the average runtime for the thriller movie genre.
+```{r}
+sqlcmd="SELECT * FROM movie_info"
+movie=dbGetQuery(mydb, sqlcmd)
+
+query <- "SELECT AVG(CAST(SUBSTR(Runtime, 1, LENGTH(Runtime) - 4) AS REAL)) AS Average_Runtime
+          FROM movie_info
+          WHERE Genre LIKE '%Thriller%'"
+
+result <- dbGetQuery(mydb, query)
+
+cat("Average Runtime for Thriller Movies:", result$Average_Runtime, "minutes\n")
+```
+
+#Question 1(1) : Create a table named director_info using SQLite; the columns are: Director_ID, and Director_Name. The Director_ID should be the primary key.
+#         1(2) : Import the entire data from the CSV file into the director_info table using the SQLite .import command (see helpful resources below). Verify that your data was imported correctly.
+```{r}
+# .open "/Users/bhavithakandru/Desktop/6020/data/imdb.db" 
+# create table director_info(Director_ID int PRIMARY KEY, Director_Name string)
+# .separator ',' 
+# .import /Users/bhavithakandru/Desktop/6020/data/directors.csv director_info
+dbListFields(mydb,"director_info")
+sqlcmd="SELECT * FROM director_info"
+director=dbGetQuery(mydb,sqlcmd)
+```
+
+#Question 2(1) : Count the number of rows in the movie_info and director_info tables.
+```{r}
+movie_count <- dbGetQuery(mydb, "SELECT COUNT(*) FROM movie_info")
+director_count <- dbGetQuery(mydb, "SELECT COUNT(*) FROM director_info")
+movie_count
+director_count
+```
+
+#Question 2 (2) : How many movies were released between 2010 and 2020 (inclusive)? Visualize the results.
+```{r}
+query2 <- "SELECT Release_Year, COUNT(*) AS MovieCount
+          FROM movie_info
+          WHERE Release_Year >= '2010' AND Release_Year <= '2020'
+          GROUP BY Release_Year
+          ORDER BY Release_Year"
+movie_release <- dbGetQuery(mydb, query2)
+print(movie_release)
+
+#Visualization
+ggplot(movie_release, aes(x = Release_Year, y = MovieCount)) +
+  geom_bar(stat = 'identity', fill = 'red') +
+   geom_text(aes(label = MovieCount), vjust = -0.5, size = 3) +  # Add movie count labels
+  labs(title = "Number of Movies Released Each Year (2010-2020)", x = "Year", y = "Number of Movies")
+```
+
+#Question 2 (3) : What is the minimum, average and maximum ratings for “Action” movies. Ensure that you query the genre using wild cards.
+
+```{r}
+query3 <- "SELECT MIN(IMDB_Rating) AS Min_Rating, AVG(IMDB_Rating) AS Avg_Rating, MAX(IMDB_Rating) AS Max_Rating FROM movie_info WHERE Genre LIKE '%Action%'"
+ratings <- dbGetQuery(mydb, query3)
+ratings
+```
+
+#Question 2 (4) : What are the 25 highest-grossing movies within the dataset? Display the title, genre and gross.
+
+```{r}
+query4 <- "SELECT Series_Title, Genre, CAST(Gross AS REAL) AS Gross FROM movie_info ORDER BY Gross DESC LIMIT 25"
+top_grossing_movies <- dbGetQuery(mydb, query4)
+top_grossing_movies
+```
+
+#Question 2 (5) : Which directors have the highest-grossing movies. Display the director name and the total gross. Ensure that you join the necessary tables. Visualize the results using a Bar chart.
+
+```{r}
+query5 <- "SELECT d.Director_Name, SUM(m.Gross) AS Total_Gross
+          FROM director_info AS d
+          JOIN movie_info AS m ON d.Director_ID = m.Director_ID
+          GROUP BY d.Director_Name
+          ORDER BY Total_Gross DESC
+          LIMIT 10"
+top_directors <- dbGetQuery(mydb, query5)
+
+#Visualization
+ggplot(data = top_directors, aes(x = reorder(Director_Name, Total_Gross), y = Total_Gross)) +
+  geom_bar(stat = "identity", fill = "orange") +
+  labs(title = "Top Directors by Total Gross", x = "Director Name", y = "Total Gross") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+#Question 2 (6) : Create a function called verifyDirector() that takes a director name as its argument, and queries the database to check if the director exists. Your function should display a message to notify the user if the director was found or not.
+
+```{r}
+verifyDirector <- function(director_name) {
+  query6 <- sprintf("SELECT COUNT(*) FROM director_info WHERE Director_Name = '%s'", director_name)
+  result <- dbGetQuery(mydb, query6)$'COUNT(*)'
+  if (result > 0) {
+    cat(paste("Director", director_name, "was found in the database.\n"))
+  } else {
+    cat(paste("Director", director_name, "was not found in the database.\n"))
+  }
+}
+
+# Use the function to verify a director (replace 'DirectorName' with the actual name)
+verifyDirector("David Yates")
+```
+

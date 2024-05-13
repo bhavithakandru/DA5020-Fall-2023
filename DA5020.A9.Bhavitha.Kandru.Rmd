@@ -1,0 +1,211 @@
+---
+title: "DA5020.A9.Bhavitha.Kandru"
+author: "Bhavitha Kandru"
+date: "2023-11-14"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(forecast)
+```
+
+#Question 1: Load the data into your R environment directly from the URL. Ensure that you inspect the data, so that you know how to identify the necessary columns.
+```{r}
+airline <- data.frame(read.csv("/Users/bhavithakandru/Desktop/6020/data/Air_Traffic_Passenger_Statistics (1).csv",header= TRUE,sep=",",na.strings=c("")))
+dim(airline)
+glimpse(airline)
+head(airline)
+```
+
+#Question 2: Filter the dataset to extract all domestic passenger activity that occurred each year, in the month of March. After which calculate the total passengers for each period. Visualize the extracted data, using a line chart; indicate the year on the x-axis and the total passengers on the y-axis. Comment on the visualization. Note: the final/aggregated dataset should have one row for March of each year.
+
+```{r}
+march<-airline[which(airline$GEO.Summary=="Domestic"),]
+```
+
+```{r}
+march$Activity.Period<-paste0(march$Activity.Period,"01")
+
+#Changing format to y/m/d
+march$Activity.Period<-as.Date(march$Activity.Period,format="%Y%m%d")
+
+#march month data
+march <-march[which(months(march$Activity.Period)=="March"),]
+
+#Total passengers
+total <- march%>%
+  mutate(Activity.Period = year(march$Activity.Period))%>%
+  group_by(Activity.Period)%>%
+  summarise(count = sum(Passenger.Count))
+
+#Visualization
+ggplot(total,aes(x=Activity.Period,y=count,col="red"))+geom_line()+labs(x="Year", y="Total Passengers",title="Number of passangers in March")
+```
+# According to the above graph, the domestic passenger activity in march over every year has increased until 2019. Due to Covid-19 in 2020 there is a sudden fall of travlling domestic.The x-axis represents year from 2006 to 2021 and y-axis represents total passengers.we can see that total number of passengers.
+
+#Question3 : Forecast the total passenger activity for March 2019, using a simple moving average of the following time periods: 201603, 201703 and 201803. After which, calculate the error (i.e. the difference between the actual and the predicted values for March 2019). Evaluate the results; how does it compare to the actual value for the total passenger count in March 2019?
+```{r}
+time<-total %>% 
+  select(Activity.Period,count) %>% 
+  filter(Activity.Period %in% c("2016","2017","2018"))
+
+#Average move time 
+avg<-mean(time$count)
+cat("The predicted moving average for the year 2019 is :",avg,"\n")
+
+#Predicted total number of travellers travellers in 2019
+predicted<-avg
+
+#Actual average of total number of travellers in 2019
+actual<-total %>% 
+  filter(Activity.Period=="2019") %>% 
+  select(count) %>% pull()
+cat("The actual moving average for 2019 is: ",actual,"\n")
+
+#Difference = Acutal-predicted
+difference<- actual-predicted
+cat("The difference between acutal and predicted is:",difference,"\n")
+
+```
+#The anticipated value for March 2019 is 6771607, but the actual amount is 6899726. There is a discrepancy of 128119 passengers between the projected and actual statistics. This suggests that the model overestimated the actual passenger figure for March 2019. However, the difference is minimal, indicating that the model may be a good predictor of passenger activity during this time period.
+
+#Question 4: Forecast the total passenger activity for 2019, using a three year weighted moving average. Apply the following weights: 3, 5, and 7 for the respective time periods: 201603, 201703 and 201803. After which, calculate the error and evaluate the result from your prediction. How does it compare to the actual value for the total passenger count in March 2019?
+```{r}
+#Multiplying the average of 2016 with 3
+x = time %>%
+  filter(Activity.Period == "2016") %>%
+  select(count) %>% pull()
+x= x*3
+cat("The weighted average of 2016 when multiplied by 3 is:",x,"\n")
+
+#Multiplying the average of 2017 with 5
+y = time %>%
+  filter(Activity.Period == "2017") %>%
+  select(count) %>% pull()
+y = y*5
+cat("The weighted average of 2017 when multiplied by 5 is:",y,"\n")
+
+#Multiplying the average of 2018 with 7 
+z = time %>% 
+  filter(Activity.Period == "2018") %>% 
+  select(count) %>% pull()
+z = z*7
+cat("The weighted average of 2018 when multiplied by 7 is:",z,"\n")
+
+#calculating moving average
+moving_avg <- (x+y+z)/(3+5+7)
+#forecasting the total passenger for march 2019
+predicted_val <- moving_avg
+#extracting the actual value for march 2019
+actual_val  <- total %>%
+  filter(Activity.Period == "2019") %>%
+  select(count) %>% pull()
+#Calculating the error which is difference between actual and predicted values
+diff <- actual_val - predicted_val
+cat("Predicted for March 2019:", predicted_val, "\n")
+cat("Actual for March 2019:", actual_val, "\n")
+
+```
+#The anticipated value for March 2019 is 6865349, but the actual amount is 6899726. There is a 34377 passenger disparity between the projected and actual figures. This suggests that the model overestimated the actual passenger figure for March 2019. However, the difference is minor, indicating that the model may be a better predictor of passenger activity than the moving average for this time period.
+
+#Question5: Forecast the total passenger activity for 2019 using exponential smoothing (alpha is 0.7). Comment on the prediction for March 2019 with the actual value in the dataset. Note: use data from 2008 to 2018 to build your model.
+```{r}
+alpha<-0.7
+march_19 <- subset(total, Activity.Period >= 2008 & Activity.Period <= 2018)
+march_19$ft <- 0
+march_19$e <- 0
+head(march_19)
+
+#First value for ft
+march_19$ft[1] <- as.numeric(march_19[1,2])
+head(march_19)
+
+#calculating second value for ft
+march_19$ft[2] <- as.numeric(march_19$ft[1]) + as.numeric(alpha*march_19$e[1])
+# Calculating value of e
+march_19$e[2] <- as.numeric(march_19[2,2]) - as.numeric(march_19$ft[2])
+#using formula to calculate ft and e
+for(i in 2:nrow(march_19)) {
+march_19$ft[i] <- as.numeric(march_19$ft[i-1]) + as.numeric(alpha*march_19$e[i-1]) 
+march_19$e[i] <- as.numeric(march_19[i,2]) - as.numeric(march_19$ft[i])
+}
+head(march_19)
+tail(march_19)
+#number of row in resulting dataset
+row_1 <- nrow(march_19)
+# calculating exponential smoothing
+exp <- as.numeric(march_19$ft[row_1]) + as.numeric(alpha*march_19$e[row_1])
+# error between predicted and actual value
+error <- exp - total[14,2]
+error
+```
+#For March 2019, the error value for actual minus expected is 92010.74.That example, the anticipated value using exponential smoothing (alpha=0.7) is greater than the actual value in the dataset by 92010.74. The current value is 6899726, and the expected value is 6991737 for March 2019.
+
+#Question6: Build a simple linear regression model using the year and total passenger activity for all data from 2008 to 2018. After which, forecast the total passenger activity for 2019 and 2020. Comment on the results. Note: Your predictions should be calculated using the coefficients. Do not use any libraries to make your predictions.
+```{r}
+
+linear <- lm(march_19$count ~ march_19$Activity.Period,march_19)
+summary(linear)
+
+#predicting value for 2019
+predict_19 <- -524789117 + 263538*2019
+cat("The Predicted value from 2019 is:",predict_19,"\n")
+
+#Calculating actual value of 2019
+actual_val <-  total %>%
+  filter(Activity.Period == "2019") %>%
+  select(count) %>% pull()
+cat("The acutal value of 2019 is:",actual_val,"\n")
+
+#predicting value for 2020 using lm
+predict_20 <- -524789117 + 263538*2020
+cat("The predicted value from 2020 is:",predict_20,"\n")
+
+#Calculating actual value for 2020
+actual_20 <-  total %>%
+  filter(Activity.Period == "2020") %>%
+  select(count) %>% pull()
+cat("The actual value of 2020 is:",actual_20,"\n")
+
+#Calculating the error difference between predicted value and actual value for 2019
+diff_19 = actual_val - predict_19
+cat("The difference between predicted and actual value in 2019 is:",diff_19,"\n")
+
+#Calculating the error difference between predicted value and actual value for 2020
+diff_20 = actual_20 - predict_20
+cat("The difference between predicted and actual value in 2020 is:",diff_20,"\n")
+
+```
+#The projected March 2019 and 2020 values are 7294105 and 7557643, respectively, whereas the actual March 2019 and 2020 values are 6899726 and 2863074, respectively.The anticipated values have errors of -394379 for March 2019 and -4694569 for March 2020. The fact that the errors are negative shows that the projected values are greater than the actual values.Other factors that influence passenger activity that are not accounted for in this model include the COVID-19 pandemic, which may have had a substantial impact on passenger activity in 2020 but is not accounted for in the model.Other aspects must be addressed in order to make the most accurate projections.
+
+#Question7: Calculate the mean squared error (MSE) for the models in (5 and 6) above based on the data from 2008 to 2018. Perform this step by step, using each model to make a forecast for each given time period, then calculate the squared error for each observation. After which average the squared errors. Which model has the smallest (MSE)? Note: do not use any libraries in your calculations.
+```{r}
+#For 5:
+pdata<-march_19 %>% 
+   mutate(Esquare = e*e)
+
+n <- nrow(pdata)
+
+#calculating mean squared error for model 5
+MSE_q5 <- sum(pdata$Esquare)/n
+cat("The mean squared error for model 5 is:",MSE_q5,"\n")
+
+#For 6:
+for(i in 1:nrow(march_19)){
+march_19$ft[i] <- (131769*march_19$Activity.Period[i])-262394559 
+march_19$e[i] <- (march_19$count[i]-march_19$ft[i])
+} 
+head(march_19)
+
+#mean squared error for model 6
+MSE_q6 <- mean(march_19$eˆ2)
+MSE_q6
+```
+
+
+
+#Model 5's MSE is 139638420983, while Model 6's MSE is showing as NA. 
+

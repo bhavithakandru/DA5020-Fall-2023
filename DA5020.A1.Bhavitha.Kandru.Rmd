@@ -1,0 +1,99 @@
+---
+title: "DA5020.A1.Bhavitha.Kandru"
+author: "Bhavitha Naga Sai Kandru"
+date: "2023-09-09"
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Question1(2):
+#Dataframe: A dataframe is a tabular format which is used to store and organize data, where each coulmn contains different types of data and each row has an individual record. My example dataframe is:
+```{r}
+players <- c('Sachin Tendulkar','Virat Kohli','Rohit Sharma','Ricky Ponting','AB de Villiers','Chris Galye')
+cent <- c(49,46,30,30,25,25)
+cricket<-data.frame(players,cent)
+cricket
+```
+
+#Question 2:
+```{r cars}
+#Creating variables
+cars<-c('Truck','Car','SUV')
+mpg<-c(11, 30, 24)
+cost<-c(5000,25000,35000)
+vehicles<-data.frame(cars,mpg,cost)
+#Loading Data
+data(vehicles)
+#Printing Data
+print(vehicles)
+```
+
+#Question 2a:
+```{r}
+vehicles<-data.frame(cars,mpg,cost)
+vehicles[1,3]
+```
+#The cost of the truck was displayed which is 5000 
+
+```{r}
+vehicles<-data.frame(cars,mpg,cost)
+vehicles[1:3]
+```
+# The rows from 1 to 3 are displayed
+
+```{r pressure, echo=FALSE}
+vehicles<-data.frame(cars,mpg,cost)
+vehicles[,3]
+```
+# The cost of all the vechicles was displayed.
+
+#question3:
+```{r}
+data(mtcars)
+head(mtcars,3)
+```
+
+```{r}
+data(mtcars)
+tail(mtcars,5)
+```
+#Question4
+```{r}
+#Categorical Variable
+category <- names(sapply(mtcars,typeof))
+str(category[c(2,8,9,10,11)])
+```
+```{r}
+# Continuous variable
+continuous <- names(sapply(mtcars,typeof))
+str(continuous[c(1,3,4,5,6,7)])
+```
+
+#Question5
+```{r}
+library(ggplot2)
+ggplot(mtcars,aes(x=disp,y=mpg)) 
+```
+#The given code do not display any relationship between 'disp' and 'mpg' because it only excute the plot but not specifying the layers.
+
+```{r}
+ggplot(mtcars,aes(x=disp,y=mpg)) + geom_point()
+```
+#To get the relation between 'disp' and 'mpg',add geom_point(). It shows a scatter plot between 'disp' and 'mpg'.
+
+#Question6
+```{r}
+data(mpg)
+ggplot(mpg,aes(x=displ,y=hwy,color=cyl))+geom_point()
+```
+#As the number of cylinders increases the highway per gallon(hwy) reduces and also with increase in cylinders the engine displacement also increases.
+
+#Question7
+```{r}
+ggplot(mpg,aes(x=displ,y=hwy,color=cyl))+geom_point() +facet_wrap(vars(drv))
+```
+#When compared to four-wheel drive (4WD) and front-wheel drive (FWD), rear-wheel drive (RWD) vehicles have a higher engine displacement but fewer cylinders, ranging from 3 to 7 liters. In contrast, 4WD and FWD vehicles exhibit nearly identical highway miles per gallon (MPG) but possess smaller engine displacements.

@@ -1,0 +1,120 @@
+---
+title: "DA5020.A10.Bhavitha.Kandru"
+author: "Bhavitha Kandru"
+date: "2023-11-28"
+output: html_document
+---
+
+# Question 1: In your own words, provide a clear definition of the confidence interval and the prediction interval, and state their respective significance. Describe in your own words what a multiple linear regression is and why one would be used.
+# Confidence interval: 
+A confidence interval, refers to the probability that a population parameter will fall between a set of values for a certain proportion of times. Often used confidence intervals are 95% and 99% of expected observations. It signifies how much uncertainty is present in statistical data.
+
+# Prediction interval:
+A prediction interval is an estimate of an interval in which a future observation will fall, with a certain probability, given what has already been observed. Prediction intervals are often used in regression analysis.It signifies in what range a future individual observation will fall.
+
+# Multiple linear regression:
+A multiple linear regression[MLR] is a statistical technique that uses several explanatory variables to predict the outcome of a response variable. 
+It is used mainly to examine how multiple independent variables are related to one dependent variable.
+
+# Install the openintro R package and load the library in your R environment. Use the ncbirths dataset to answer the following questions
+```{r}
+#install.packages("openintro")
+library(openintro)
+library(dplyr)
+```
+
+```{r}
+data(ncbirths)
+l<-lapply(ncbirths,as.numeric)
+births <- sapply(ncbirths,is.numeric)
+glimpse(ncbirths)
+new<-ncbirths
+```
+
+# Question 2: Load the data in your R environment and build a full correlation matrix ,i.e. a matrix that shows the correlations between all variables. Do you detect any multicollinearity that would affect the construction of a multiple regression model? Comment on the distribution of each field. Do you anticipate that there are fields that may not be useful for the model? If yes, provide an example.
+```{r}
+new <- new[,births]
+cor_birth <- cor(new, use="complete.obs")
+cor_birth
+```
+# Mutlicollienarity:  
+Yes, There is a multicollienarity between fage and mage is approx 0.78 indicating strong positive correlation. This can be a problem as it might distort the individual effects of each parent's age on the dependent variable.Whereas there is a negligible or relatively low correlation between weeks and weight,but it do not effect the model.
+
+# Distribution of each field:
+Without visualization it is hard to detect the precision of the model's distribution. Although fage and mage have strong correlation. There is a negative correlation between fage, mage vs weeks, which indicates that with increase in age, there are chances that they may have a pre-matured babies. And also when comparing weeks vs weights, there is a positive correlation indicating that the more number of weeks increases the weight of the baby.
+
+# Fields that may not be useful for the model:
+Yes, there is a field that is not helpful for this model which is "visits". Number of visits cannot determine anything related to the model.
+
+# Question 3: Build a full multiple regression model that predicts the birth weight i.e weight. Comment on the: R- squared, Standard Error, F-Statistic, p-values of coefficients.
+```{r}
+model<-lm(weight~., data=ncbirths)
+summary(model)
+```
+# R-squared: 
+This statistic indicates how much of the variation in birth weight your model can explain. The closer this value is to one, the more accurately your model describes birth weight.
+
+# Standard Error: 
+This is often presented for each coefficient and shows the average distance from the regression line where the observed values fall. Lower standard errors imply more accurate estimations.
+
+# F-statistic: 
+The F-statistic determines whether or not at least one predictor variable has a non-zero coefficient. A higher F-Statistic value (along with a low p-value) implies that your model outperforms an empty model.
+
+# Coefficient p-values: 
+These values indicate whether or not each variable is statistically significant. A p-value less than 0.05 indicates that a variable is strongly related to birth weight.
+
+# Question 4: Build a multiple regression model in which all coefficients are significant — use stepwise elimination based on coefficients with the p-value > 0.05. Show each step as you eliminate the coefficients and clearly state the reason for their elimination. At each step, determine if the model is improving.
+```{r}
+new_births<-na.omit(ncbirths)
+model<-lm(weight~., data=new_births)
+summary(model)
+stepwise_elimination <- step(model, direction = "backward", trace = 2)
+summary(stepwise_elimination)
+```
+# Starting Model:
+The goal was to remove variables that are not significantly contributing to predicting birth weight (weight).
+
+# First Elimination:
+In the first few phases, variables such as mage, mature, visits, and premie were excluded since their p-values were more than 0.05, suggesting that they were not significantly contributing to the model. The AIC (Akaike Information Criterion) was measured after each removal. A lower AIC indicates a better model fit with fewer superfluous variables.
+
+# Intermediate Steps:
+The procedure continues by determining the relevance of each variable. Variables having the highest p-values greater than 0.05 were eliminated one at a time. The model was reviewed after each reduction to ensure that the remaining variables were still significant.
+
+# Final Model:
+Fage, weeks, marital, gained, low birth weight, gender, habit, and white mom were all included in the final model. These factors were statistically significant since their p-values were less than 0.05.
+
+# Model Improvement:
+The model's fit was evaluated using the AIC and the p-values of the remaining variables after each phase of elimination. The final model has a lower AIC than the first model, indicating a better match.
+The Multiple R-squared and Adjusted R-squared values are significant (0.6049 and 0.6009, respectively), indicating that this model explains a large percentage of the variability in birth weight. The F-statistic is strong, and the p-value is very low (2.2e-16), indicating that the model fits the data well.
+
+# Conclusion:
+The model was efficiently reduced to just meaningful predictors of birth weight thanks to the step-by-step exclusion approach. The model's overall fit and explanatory power increased as a result of this approach, as demonstrated by a decreased AIC, significant coefficients for all remaining variables, and a high F-statistic.
+
+# Question 5: Use the following data to predict the birth weight using the final model from question 4 above: fage = 40, mage = 32, mature = 'mature mom’, weeks = 42, premie = 'full term’, visits = 12, marital = ‘married', gained=22, lowbirthweight = 'not low’, gender = ‘female', habit = ‘nonsmoker', whitemom = ‘white’. After which, derive the 95% confidence and prediction intervals for the forecasted birth weight. Comment on the results.
+```{r}
+new_data<-data.frame(fage = 40,
+                     mage = 32, 
+                     mature = 'mature mom', 
+                     weeks = 42, 
+                     premie = 'full term', 
+                     visits = 12, 
+                     marital = 'married', 
+                     gained=22, 
+                     lowbirthweight = 'not low', 
+                     gender = 'female', 
+                     habit = 'nonsmoker', 
+                     whitemom = 'white')
+
+
+#95% Confidence Interval
+ci<- predict(stepwise_elimination,new_data,interval="confidence",level=0.95)
+ci
+
+# 95% Prediction Interval
+pi <- predict(stepwise_elimination,new_data,interval="prediction",level=0.95)
+pi
+```
+# Results:
+The estimated birth weight ( 8.003541 units) is within a small confidence range, indicating a reasonably accurate approximation of the typical weight for newborns with these features.
+The broader prediction interval implies increased uncertainty when predicting a single example, as is common in regression analysis.
+It is critical to note that these intervals are determined by the model and the data on which it was trained. These ranges are credible if the model fits the data well and the linear regression assumptions are satisfied. If the model or data has limitations, they should be considered when interpreting the results.

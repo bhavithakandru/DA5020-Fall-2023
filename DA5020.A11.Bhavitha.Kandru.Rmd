@@ -1,0 +1,89 @@
+---
+title: "DA5020.A11.Bhavitha.Kandru"
+author: "Bhavitha Kandru"
+date: "2023-11-26"
+output: html_document
+---
+
+#Question 1: Load the diabetes dataset “diabetes.csv”, inspect the data and gather any relevant summary statistics.
+```{r}
+library(dplyr)
+library(ggplot2)
+library(caret)
+diabetes<-read.csv("/Users/bhavithakandru/Desktop/6020/data/diabetes.csv")
+dim(diabetes)
+summary(diabetes)
+glimpse(diabetes)
+```
+
+#Question 2: Normalize the explanatory variables using min-max normalization.
+```{r}
+min <- apply(diabetes, 2, min)
+max <- apply(diabetes, 2, max)
+
+# Perform min-max normalization
+normalized_data <- scale(diabetes, center = min, scale = max - min)
+head(normalized_data)
+```
+
+#Question 3: Split the data into a training set and a test set i.e. perform an 80/20 split; 80% of the data should be designated as the training data and 20% as the test data.
+```{r}
+total <- nrow(diabetes)
+train <- round(0.8 * total)
+
+# Generate random indices for the training set
+train_set <- sample(1:total, train, replace = FALSE)
+
+# Create the training and test sets
+train_data <- diabetes[train_set, ]
+test_data <- diabetes[-train_set, ]
+
+
+```
+#The dataset starts with 768 observations. Following an 80/20 split, the training set has 614 observations, accounting for 80% of the original dataset. Concurrently, the test set contains 154 observations, accounting for 20% of the original dataset. The more extensive training set (80%) allows the model to learn from a significant portion of the data, while the test set (20%) serves as an independent benchmark to evaluate the model's performance on unseen examples, ensuring its ability to generalize beyond the training data.
+
+#Question 4: Create a function called knn_predict(). The function should accept the following as input: the training set,the test set and the value of k. For example knn_predict(train.data, test.data, k).
+# • Implement the logic for the k-nn algorithm from scratch (without using any libraries). There is an example in the lecture series on Canvas. The goal of your k-nn algorithm is to predict the Outcome(i.e. whether or not the patient has diabetes) using the explanatory variables.
+# • The function should return a list/vector of predictions for all observations in the test set. 
+```{r}
+knn_predict <- function(train_data, test_data, k) {
+  # Function to calculate Euclidean distance between two data points
+  euclidean_distance <- function(x1, x2) {
+    sqrt(sum((x1 - x2)^2))
+  }
+  
+  # Function to find the k-nearest neighbors for a test data point
+  find_nearest_neighbors <- function(test_point, train_data, k) {
+    distances <- sapply(1:nrow(train_data), function(i) euclidean_distance(test_point, train_data[i, ]))
+    nearest_indices <- order(distances)[1:k]
+    return(nearest_indices)
+  }
+  
+  # Function to make a prediction for a test data point
+  predict_single <- function(test_point, train_data, train_labels, k) {
+    nearest_indices <- find_nearest_neighbors(test_point, train_data, k)
+    nearest_labels <- train_labels[nearest_indices]
+    prediction <- ifelse(sum(nearest_labels) > k / 2, 1, 0)
+    return(prediction)
+  }
+  
+  # Make predictions for all test data points
+  predictions <- sapply(1:nrow(test_data), function(i) predict_single(test_data[i, ], train_data, train_data[, ncol(train_data)], k))
+  
+  return(predictions)
+}
+```
+
+#Question 5: Demonstrate that the knn_predict() function works and use it to make predictions for the test set. You can determine a suitable value of k for your demonstration. After which, analyze the results that were returned from the function using a confusion matrix. Explain the results. Note: refer to the ‘Useful Resources’ section for more information on building a confusion matrix in R.
+```{r}
+predictions <- knn_predict(train_data, test_data, k = 5)
+
+predictions <- as.factor(predictions)
+test_data$Outcome <- as.factor(test_data$Outcome)
+
+confusion_matrix <- confusionMatrix(predictions, test_data$Outcome)
+
+print(confusion_matrix$table)
+
+```
+#The confusion matrix shown above depicts the predictions of a k-nearest neighbors (KNN) model on a test set. It shows how well the model fared in categorizing situations into two groups: '0' for non-diabetic people and '1' for diabetes people. The numbers along the diagonal in the matrix represent successful predictions, with '89' occurrences of the non-diabetic class ('0') properly predicted and '26' cases of the diabetic class ('1') correctly detected. The off-diagonal numbers represent misclassifications, with '24' non-diabetic persons improperly projected as diabetic ('1) and ('15' diabetic individuals incorrectly forecasted as non-diabetic ('0').

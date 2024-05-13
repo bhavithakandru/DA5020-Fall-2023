@@ -1,0 +1,89 @@
+---
+title: "DA5020.A3.Bhavitha.Kandru"
+author: "Bhavitha Kandru"
+date: "2023-09-21"
+output: 
+  html_document: default
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(scales)
+```
+#Question 2: Load the NYC Green Taxi Trip Records data directly from the URL or data in Canvas into a data frame called tripdata_df.Inspect the data to identify its dimensions and the frequency of missing values. Helpful functions: dim(),glimpse() and summary(). Tip: it is also good practice to inspect the data type for each field/column to determine if the data was imported correctly.
+```{r}
+tripdata_df<-read.csv("/Users/bhavithakandru/Desktop/6020/2018_Green_Taxi_Trip_Data.csv")
+```
+#Data Inspection
+```{r}
+dim(tripdata_df)
+glimpse(tripdata_df) 
+summary(tripdata_df)
+sapply(tripdata_df, function(x) sum(is.na(x)))
+```
+#The dataset tripdata_df contains 1048575 observations of 19 variables.to know the missing values in the dataset I used sapply.
+
+#Question 3: Explore the data to determine if there are any inconsistent or invalid data; for example, examine the dates within the dataset to see if they align with your expectations (remember you downloaded a dataset for February 2020). Identify at least Three (3) things that stand out to you and remember that this is based on your observations about the data, so it's important to demonstrate what you found.
+```{r}
+#1)we can see that in variable lpep_dropoff_datetime & lpep_pickup_datetime the date is January but we downloaded the csv file for the month of February and even the time is not mentioned in a proper format. 
+head(tripdata_df$lpep_dropoff_datetime)
+glimpse(tripdata_df$lpep_pickup_datetime)
+#2)The column ehail_fee completely contains NA values.so we can remove the entire column 
+head(tripdata_df$ehail_fee)
+#3)The total_amount,fare_amount has some negative values,but the amount cannot be negative so its inconsistent.
+```
+
+#Question 4: Create a histogram, showing the trip_distance. Is the data skewed? Explain what you observed using 1-2 sentences.Note: you may need to rescale the y-axis using a log scale to improve the visualization.
+```{r}
+ggplot(tripdata_df,aes(x=tripdata_df$trip_distance))+geom_histogram(bins=50)+scale_y_log10()+labs(x="trip Distance", y="Frequency")
+```
+#From the above graph we can say that data positive skewed because as seen in graph, it is skewed towards right as most of the values fall on left side.
+
+#Question 5: Analyze the tip_amount and trip_distance variables to identify any outliers. You can assume the outliers are 3 standard deviations from the mean. Comment on the outliers that were detected; after which, remove the outlier tip_amount from the data (building from Q4
+```{r}
+#mean,median,sd of trip_distance and tip_amount
+distance<-tripdata_df$trip_distance
+tip<-tripdata_df$tip_amount
+#mean
+m_dist<-mean(distance)
+m_tip<-mean(tip)
+#median
+med_dist<-median(distance)
+med_tip<-median(tip)
+#standard deviation
+sd_dist<-sd(distance)
+sd_tip<-sd(tip)
+
+# Outliners of distance
+out_m_dist<-abs((m_dist-distance)/sd_dist)
+out_dist<-tripdata_df[which(out_m_dist > 3),]
+nrow(out_dist)
+
+#Outliners of tip
+out_m_tip<-abs((m_tip-tip)/sd_tip)
+out_tip <- subset(tip,out_m_tip>3)
+remove<-subset(tip,out_m_tip<3)
+glimpse(out_tip)
+glimpse(remove)
+
+```
+#Outliers are values that are notably different from other data points, and they can cause problems in statistical procedures.In trip_distance 20953 outliers were detected.In tip_amount 14444 outliers were detected which is more than the outliers in trip_distance.we removed the outliers in tip_amount from the data
+
+#Question 6: Filter the data from question 5 above (Trip_distance), and create a suitable visualization to show the frequency of trip_distance by payment_type (e.g. credit card, cash, etc). Ensure that your visualization(s) has a title and label both the x and y axis. (outliers should be removed)
+```{r}
+ggplot(tripdata_df,aes(x=payment_type,y=trip_distance,col=payment_type))+geom_col()+labs(x="Mode of payment",y="Distance",title = "Trip_distance")
+```
+#The graph depicts the distribution of payment types based on trip distance. Each vertical bar represents the frequency within each payment category. The majority of passengers predominantly used payment type 1, with payment type 5 being the least utilized. Notably, payment type 1 was chosen by a significant number of passengers, exceeding 1,500,000 instances, while payment type 2 was selected more than 1,000,000 times. In contrast, payment types 3, 4, and 5 were used sparingly.
+
+#Question 7: State at least two methods/techniques that can be used to handle missing data. Which approach would you recommend, is suitable, to handle missing values in this dataset? How would you do this in R and provide examples on Taxi data
+```{r}
+#Imputing
+mean_trip_type <- mean(tripdata_df$trip_type, na.rm = TRUE)
+
+#Deletion:
+x<-tripdata_df[,-15]
+```
+#Handling missing data is an important step in data processing. most common steps used are : imputing and deletion. As an example I choosed trip_type column from tripdata_df.I used mean method to impute data. It is by replacing missing values by mean of the non missing values.
+#The Second step is deletion of missing values by deleting the data from ehail_fee column as it had all na values.
